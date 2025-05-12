@@ -41,6 +41,25 @@ func TestRegisterFactoryResolve(t *testing.T) {
 	}
 }
 
+// TestRegisterFactoryResolveNamed проверяет регистрацию и разрешение через именованные фабричные функции.
+func TestRegisterFactoryResolveNamed(t *testing.T) {
+	c := di.NewContainer()
+
+	di.RegisterFactoryNamed(c, "helloWorld", func() (string, error) {
+		return "Hello, World!", nil
+	})
+
+	// Разрешаем зависимость
+	value, err := di.ResolveNamed[string](c, "helloWorld")
+	if err != nil {
+		t.Fatalf("Dependency not found: %s", err)
+	}
+
+	if value != "Hello, World!" {
+		t.Errorf(`Expected "Hello, World!", got %v`, value)
+	}
+}
+
 // TestSingleton проверяет, что синглтон создается только один раз.
 func TestSingleton(t *testing.T) {
 	c := di.NewContainer()

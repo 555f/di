@@ -5,22 +5,20 @@ import (
 	"sync"
 )
 
-type Containerer interface{}
-
-// Container — контейнер для управления зависимостями.
+// Container - контейнер для управления зависимостями.
 type Container struct {
 	dependencies sync.Map
 	singletons   sync.Map
 }
 
-// RegisterFactoryOptions опции для регистрации фабричной функции.
+// RegisterFactoryOptions - опции для регистрации фабричной функции.
 type RegisterFactoryOptions struct {
-	singleton bool // создавать только один экземпляр зависимости
+	singleton bool
 }
 
 type RegisterFactoryOption func(*RegisterFactoryOptions)
 
-// WithSingleton опция для регистрации фабричной функции как синглтон.
+// WithSingleton - опция для регистрации фабричной функции как синглтон.
 func WithSingleton() RegisterFactoryOption {
 	return func(options *RegisterFactoryOptions) {
 		options.singleton = true
@@ -34,72 +32,70 @@ func NewContainer() *Container {
 
 // Register регистрирует зависимость как готовый экземпляр.
 func Register[T any](c *Container, value T) {
-	var zero T
-
-	register(c, typeName(zero), value, false)
+	registerInstance(c, typeName(*new(T)), value)
 }
 
-// Register регистрирует именованную зависимость как готовый экземпляр.
+// RegisterNamed регистрирует именованную зависимость как готовый экземпляр.
 func RegisterNamed[T any](c *Container, name string, value T) {
-	register(c, name, value, false)
-}
-
-// RegisterFactory регистрирует именованную фабричную функцию для создания зависимости.
-func RegisterFactory[T any](c *Container, factory func() (T, error), opts ...RegisterFactoryOption) {
-	var zero T
-
-	RegisterFactoryaNamed(c, typeName(zero), factory, opts...)
+	registerInstance(c, buildName(name, *new(T)), value)
 }
 
 // RegisterFactory регистрирует фабричную функцию для создания зависимости.
-func RegisterFactoryaNamed[T any](c *Container, name string, factory func() (T, error), opts ...RegisterFactoryOption) {
-	o := &RegisterFactoryOptions{}
-	for _, applyOpt := range opts {
-		applyOpt(o)
-	}
-
-	register(c, name, factory, o.singleton)
+func RegisterFactory[T any](c *Container, factory func() (T, error), opts ...RegisterFactoryOption) {
+	registerFactory(c, "", factory, opts...)
 }
 
-func ResolveNamed[T any](c *Container, name string) (T, error) {
-	return resolve[T](c, name)
-}
-
-func Resolve[T any](c *Container) (T, error) {
-	var zero T
-
-	name := typeName(zero)
-
-	return resolve[T](c, name)
-}
-
-func register[T any](c *Container, name string, provider T, singleton bool) {
-	if singleton {
-		c.singletons.Store(name, provider)
-	} else {
-		c.dependencies.Store(name, provider)
-	}
+// RegisterFactoryNamed регистрирует именованную фабричную функцию для создания зависимости.
+func RegisterFactoryNamed[T any](c *Container, name string, factory func() (T, error), opts ...RegisterFactoryOption) {
+	registerFactory(c, name, factory, opts...)
 }
 
 // Resolve извлекает зависимость из контейнера.
+func Resolve[T any](c *Container) (T, error) {
+	return resolve[T](c, typeName(*new(T)))
+}
+
+// ResolveNamed извлекает именованную зависимость из контейнера.
+func ResolveNamed[T any](c *Container, name string) (T, error) {
+	return resolve[T](c, buildName(name, *new(T)))
+}
+
+func registerInstance[T any](c *Container, name string, value T) {
+	c.dependencies.Store(name, value)
+}
+
+func registerFactory[T any](c *Container, name string, factory func() (T, error), opts ...RegisterFactoryOption) {
+	options := &RegisterFactoryOptions{}
+	for _, opt := range opts {
+		opt(options)
+	}
+
+	key := buildName(name, *new(T))
+	if options.singleton {
+		c.singletons.Store(key, factory)
+	} else {
+		c.dependencies.Store(key, factory)
+	}
+}
+
 func resolve[T any](c *Container, name string) (T, error) {
 	var zero T
 
-	if factory, ok := c.singletons.Load(name); ok {
-		if singletonFactory, isFunc := factory.(func() (T, error)); isFunc {
-			value, err := singletonFactory()
+	if singleton, ok := c.singletons.Load(name); ok {
+		if factory, isFunc := singleton.(func() (T, error)); isFunc {
+			instance, err := factory()
 			if err != nil {
 				return zero, err
 			}
-			c.dependencies.Store(name, value)
+			c.dependencies.Store(name, instance)
 			c.singletons.Delete(name)
-			return value, nil
+			return instance, nil
 		}
 	}
 
 	value, ok := c.dependencies.Load(name)
 	if !ok {
-		return zero, fmt.Errorf("dpendency %s not registered", name)
+		return zero, fmt.Errorf("dependency %s not registered", name)
 	}
 
 	if factory, isFunc := value.(func() (T, error)); isFunc {
@@ -107,4 +103,8 @@ func resolve[T any](c *Container, name string) (T, error) {
 	}
 
 	return value.(T), nil
+}
+
+func buildName[T any](name string, _ T) string {
+	return name + typeName(*new(T))
 }
