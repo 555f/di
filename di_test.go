@@ -60,7 +60,7 @@ func TestRegisterFactoryResolveNamed(t *testing.T) {
 	}
 }
 
-// TestSingleton проверяет, что синглтон создается только один раз.
+// TestSingleton проверяет, что создается только один раз.
 func TestSingleton(t *testing.T) {
 	c := di.NewContainer()
 
@@ -70,7 +70,7 @@ func TestSingleton(t *testing.T) {
 	di.RegisterFactory(c, func() (int, error) {
 		counter++
 		return counter, nil
-	}, di.WithSingleton())
+	})
 
 	// Первый вызов Resolve должен вызвать фабричную функцию
 	value1, err := di.Resolve[int](c)
