@@ -69,10 +69,10 @@ func Register[T any](с *Container, value T)
 
 ### di.RegisterFactory
 
-Регистрирует фабричную функцию для создания зависимости. Если передана опция <code>WithSingleton</code>, фабричная функция будет вызвана только один раз, а результат будет кэширован.
+Регистрирует фабричную функцию для создания зависимости. Фабричная функция будет вызвана только один раз, а результат будет кэширован.
 
 ```go
-func RegisterFactory[T any](c *Container, factory func() (T, error), opts ...RegisterFactoryOption)
+func RegisterFactory[T any](c *Container, factory func() (T, error))
 ```
 
 #### Параметры
@@ -80,8 +80,6 @@ func RegisterFactory[T any](c *Container, factory func() (T, error), opts ...Reg
 <code>c</code>: контейнер для регистрации зависимости.
 
 <code>factory</code>: фабричная функция, которая создаёт зависимость.
-
-<code>opts</code>: опции для регистрации фабричной функции.
 
 ### di.Resolve
 
